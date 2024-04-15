@@ -1,0 +1,7 @@
+﻿Name,Quantity,Component
+"Q1",1," Ambient Light Sensor [Phototransistor]"
+"PIEZO1",1," Piezo"
+"U2",1," Arduino Uno R3"
+"R1",1,"10 kΩ Resistor"
+"Meter2",1,"Voltage Multimeter"
+"R2",1,"220 Ω Resistor"

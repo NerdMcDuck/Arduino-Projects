@@ -1,0 +1,318 @@
+
+// You'll need to know the Product ID for your keypad.
+// Here's a summary:
+//   * PID3844 4x4 Matrix Keypad
+//   * PID3845 3x4 Matrix Keypad
+//   * PID1824 3x4 Phone-style Matrix Keypad
+//   * PID1332 Membrane 1x4 Keypad
+//   * PID419  Membrane 3x4 Matrix Keypad
+
+#include "Adafruit_Keypad.h"
+#include <LiquidCrystal.h>
+
+byte heart[8] = {
+  0b00000,
+  0b01010,
+  0b11111,
+  0b11111,
+  0b11111,
+  0b01110,
+  0b00100,
+  0b00000
+};
+
+byte smiley[8] = {
+  0b00000,
+  0b00000,
+  0b01010,
+  0b00000,
+  0b00000,
+  0b10001,
+  0b01110,
+  0b00000
+};
+
+byte frownie[8] = {
+  0b00000,
+  0b00000,
+  0b01010,
+  0b00000,
+  0b00000,
+  0b00000,
+  0b01110,
+  0b10001
+};
+
+byte armsDown[8] = {
+  0b00100,
+  0b01010,
+  0b00100,
+  0b00100,
+  0b01110,
+  0b10101,
+  0b00100,
+  0b01010
+};
+
+byte armsUp[8] = {
+  0b00100,
+  0b01010,
+  0b00100,
+  0b10101,
+  0b01110,
+  0b00100,
+  0b00100,
+  0b01010
+};
+
+/* Define LCD PINS
+ * LCD RS pin to digital pin 9
+ * LCD Enable pin to digital pin 10
+ * LCD D4 pin to digital pin 11
+ * LCD D5 pin to digital pin 12
+ * LCD D6 pin to digital pin 13
+ * LCD D7 pin to digital pin A0
+ * The Circuit: 
+ * LCD R/W pin to ground
+ * LCD VSS pin to ground
+ * LCD VDD pin to 5V
+ * POT to V0 pin  or V0 to GND
+*/
+#define RS 9
+#define LCD_E 10
+#define LCD_D4 11
+#define LCD_D5 12
+#define LCD_D6 13
+#define LCD_D7 A0
+
+// define your specific keypad here via PID
+#define KEYPAD_PID1824
+// define your pins here
+
+#define C1    2
+#define C2    3
+#define C3    4
+#define R1    5
+#define R2    6
+#define R3    7
+#define R4    8
+
+// leave this import after the above configuration
+#include "keypad_config.h"
+
+// define constants
+#define MAX_PASSWORD_LENGTH 3
+const char *master_password = "123";
+const char *reset_code = "***6969***";
+const char *empty_buffer = "---";
+char *buffer = (char *) malloc(sizeof(char) * MAX_PASSWORD_LENGTH);
+char *password = (char *) malloc(sizeof(char) * MAX_PASSWORD_LENGTH);
+int cursor_x = 0;
+bool is_valid_passcode = false;
+bool reset_code_entered = false;
+
+// Define methods that will be used
+void get_password();
+bool validate_password();
+void success_message();
+void set_password();
+void reset_lcd();
+void initial_message();
+void bad_passcode_msg();
+void set_new_password();
+
+//initialize an instance of class NewKeypad
+Adafruit_Keypad customKeypad = Adafruit_Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// initialize the library with the numbers of the interface pins
+LiquidCrystal lcd(RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+void setup() {
+  Serial.begin(9600);
+  customKeypad.begin();
+  // set up the LCD's number of columns and rows:
+  lcd.begin(16, 2);
+
+  // create a new character
+  lcd.createChar(0, heart);
+  lcd.createChar(1, smiley);
+  lcd.createChar(2, frownie);
+  lcd.createChar(3, armsDown);
+  lcd.createChar(4, armsUp);
+
+  // Initialize buffer that will be saved to memory
+  strcpy(password, empty_buffer);
+  strcpy(buffer, empty_buffer);
+  initial_message();
+}
+
+void loop() {
+  get_password();
+  while(is_valid_passcode){
+    success_message();
+  }
+  delay(10);
+}
+
+// Ask for password input
+void get_password()
+{
+  lcd.setCursor(cursor_x, 1);
+  customKeypad.tick();
+  while(customKeypad.available()){
+    keypadEvent e = customKeypad.read();
+    char key = (char)e.bit.KEY;
+    if(e.bit.EVENT == KEY_JUST_PRESSED && key != '#'){
+      buffer[cursor_x] = key;
+      cursor_x++;
+      Serial.print("curr_pos: ");
+      Serial.println(cursor_x);
+      lcd.write(key);
+    } 
+    if(cursor_x == MAX_PASSWORD_LENGTH || key == '#')
+    {
+      Serial.println(buffer);
+      is_valid_passcode = validate_password();
+
+      if(reset_code_entered){
+        set_new_password();
+      } 
+      else if(is_valid_passcode){
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Success! ");
+        lcd.write(byte(1)); //smiley
+        Serial.println("Success!");
+        cursor_x = 0;
+        break;
+      } 
+      else{
+        Serial.println("else");
+        bad_passcode_msg();
+        reset_lcd();
+        cursor_x = 0;
+      }
+    }
+  }
+}
+
+// Check if the password is correct
+bool validate_password()
+{
+  for(int i = 0; i < 10; i++){
+    if(buffer[i] != reset_code[i]){
+      break;
+    }
+    if(i == 9){
+      reset_code_entered = true;
+      return false;
+    }
+  }
+
+  for(int i = 0; i < MAX_PASSWORD_LENGTH; i++){
+    if(buffer[i] == master_password[i]){
+      continue;
+    }
+    else{
+      Serial.println("Wrong Password");
+      return false;
+    }
+  }
+  return true;
+}
+
+//Save the password
+void set_password()
+{
+  strcpy(buffer, password);
+  strcpy(empty_buffer, buffer);
+}
+
+void success_message()
+{
+  lcd.clear();
+  lcd.noCursor();
+  lcd.noBlink();
+  lcd.setCursor(0, 0);
+  lcd.print("Disarm Sequence");
+  lcd.setCursor(2, 1);
+  lcd.print("Accepted ");
+  // draw frownie face
+  lcd.write((byte)2);
+  delay(1000);
+  // lcd.noDisplay();
+}
+
+// Clear the lcd and display the initial message
+void reset_lcd()
+{
+  lcd.clear();
+  initial_message();
+}
+
+void initial_message()
+{
+  lcd.blink();
+  // set the cursor to the top left
+  lcd.setCursor(0, 0);
+  lcd.print("Enter passcode");
+  // lcd.write(byte(0)); // heart 
+}
+
+// Displays a message letting the user know the inccorect passcode was used
+void bad_passcode_msg()
+{
+  lcd.clear();
+  lcd.noBlink();
+  lcd.noCursor();
+  lcd.setCursor(0, 0);
+  lcd.print("Disarm Sequence");
+  lcd.setCursor(2, 1);
+  lcd.print("Incorrect ");
+  lcd.write((byte)0);
+  delay(2000);
+}
+
+void set_new_password()
+{
+  Serial.println("set new password");
+  strcpy(buffer, empty_buffer);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Add new password.");
+  lcd.setCursor(0, 1);
+  lcd.print("Press # to save.");
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.blink();
+  lcd.print("Enter new pass: ");
+  lcd.setCursor(1, 1);
+
+  cursor_x = 0;
+  customKeypad.clear();
+  customKeypad.tick();
+  char key = ' ';
+  while(customKeypad.available()){
+    keypadEvent e = customKeypad.read();
+    char key = (char)e.bit.KEY;
+    if(e.bit.EVENT == KEY_JUST_PRESSED && key != '#'){
+      buffer[cursor_x] = key;
+      cursor_x++;
+      lcd.write(key);
+    }
+    Serial.println(key);
+    if(cursor_x == MAX_PASSWORD_LENGTH || key == '#')
+    {
+      Serial.print("New password is: ");
+      Serial.println(buffer);
+      lcd.clear();
+      lcd.setCursor(5, 0);
+      lcd.write("key saved");
+      delay(2000);
+      reset_code_entered = false;
+      break;
+    }
+  }
+  cursor_x = 0;
+}

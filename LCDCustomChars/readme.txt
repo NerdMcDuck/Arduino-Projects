@@ -1,0 +1,1 @@
+This project uses a customized version of the "LCDCustomChars" example by Bill Perry. 

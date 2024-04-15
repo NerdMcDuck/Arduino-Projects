@@ -1,0 +1,14 @@
+AccelStepper/
+Adafruit_BusIO/
+Adafruit_GFX_Library/
+Adafruit_ILI9341/
+Adafruit_Keypad/
+Adafruit_Motor_Shield_V2_Library/
+Adafruit_NeoPixel/
+Adafruit_SH110X/
+Adafruit_SSD1306/
+Adafruit_STMPE610/
+Adafruit_TouchScreen/
+Adafruit_TSC2007/
+hd44780/
+Servo/
